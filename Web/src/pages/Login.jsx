@@ -9,8 +9,11 @@ import {
 } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
 import api from "../Api/api";
+import { useDispatch, useSelector } from "react-redux";
+import { setUserData } from "../redux/userSlice";
 
 export default function Login() {
+  let dispatch = useDispatch()
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
@@ -19,6 +22,9 @@ export default function Login() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const { userData } = useSelector(state=>state.user)
+  console.log(userData);
+  
   const navigate = useNavigate()
 
   const handleLogin = async (e) => {
@@ -34,8 +40,11 @@ export default function Login() {
       setLoading(true);
       // Yahan apni login API call lagayein
       let result = await api.post(`/auth/login`, { password, email })
+      dispatch(setUserData(result.data))
       navigate("/dashboard")
     } catch (err) {
+      console.log(err);
+      
       setError(err?.response?.data?.message || "Unable to sign in. Please try again.");
     } finally {
       setLoading(false);
