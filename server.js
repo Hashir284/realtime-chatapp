@@ -21,19 +21,22 @@ app.use(express.json({ limit: "15mb" }));
 app.use(express.urlencoded({ extended: true, limit: "15mb" }));
 app.use(cookieParser());
 
+// API Routes
 app.use("/api/auth", authRouter);
 app.use("/api/user", userRouter);
 app.use("/api/message", messageRouter);
 
+// Frontend Static Files
 const __dirname = path.resolve();
 const __frontend = path.join(__dirname, "./Web/dist");
 
 app.use(express.static(__frontend));
-app.get("*", (req, res) => {
+
+// Express v5 SPA fallback middleware (Express 5 mein app.get('*') error deta hai)
+app.use((req, res) => {
   res.sendFile(path.join(__frontend, "index.html"));
 });
 
-// Railway PORT env variable use karta hai
 const PORT = process.env.PORT || 4000;
 server.listen(PORT, "0.0.0.0", () => {
   connectDb();
