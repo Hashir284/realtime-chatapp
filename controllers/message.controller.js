@@ -1,15 +1,24 @@
 import Message from "../models/message.model.js";
 import Conversation from "../models/conversation.model.js";
 import { getReceiverSocketId, io } from "../socket/socket.js";
+import cloudinary from "../configuration/cloudinary.js";
 
 export const sendMessage = async (req, res) => {
   try {
-    const { message } = req.body;
+    const { message, image } = req.body;
     const { id: receiverId } = req.params;
     const senderId = req.userId;
 
-    if (!message || !message.trim()) {
-      return res.status(400).json({ message: "Message content cannot be empty" });
+    if (!message && !image) {
+      return res.status(400).json({ message: "Please provide either a message or an image" });
+    }
+
+    let imageUrl = "";
+    if (image) {
+      const uploadResponse = await cloudinary.uploader.upload(image, {
+        folder: "chat_app_images",
+      });
+      imageUrl = uploadResponse.secure_url;
     }
 
     let conversation = await Conversation.findOne({
@@ -26,7 +35,8 @@ export const sendMessage = async (req, res) => {
     const newMessage = await Message.create({
       senderId,
       receiverId,
-      message,
+      message: message || "",
+      image: imageUrl,
     });
 
     conversation.messages.push(newMessage._id);
@@ -35,7 +45,6 @@ export const sendMessage = async (req, res) => {
     // Realtime Socket emit
     const receiverSocketId = getReceiverSocketId(receiverId);
     if (receiverSocketId) {
-      // Send the new message directly to receiver
       io.to(receiverSocketId).emit("newMessage", newMessage);
     }
 

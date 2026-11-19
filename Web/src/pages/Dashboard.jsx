@@ -19,6 +19,8 @@ import {
   FiSearch,
   FiBell,
   FiCheck,
+  FiImage,
+  FiX,
 } from "react-icons/fi";
 
 export default function Dashboard() {
@@ -31,12 +33,14 @@ export default function Dashboard() {
   const [allUsers, setAllUsers] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [messageInput, setMessageInput] = useState("");
+  const [selectedImage, setSelectedImage] = useState(null);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [sending, setSending] = useState(false);
 
   const messagesEndRef = useRef(null);
+  const fileInputRef = useRef(null);
 
-  // Auto scroll to bottom of messages
+  // Auto scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
@@ -64,7 +68,6 @@ export default function Dashboard() {
         setLoadingMessages(true);
         const res = await api.get(`/message/${selectedUser._id}`);
         dispatch(setMessages(res.data));
-        // Clear unread notifications for this selected user
         dispatch(clearNotificationsForUser(selectedUser._id));
       } catch (err) {
         console.error("Error fetching messages:", err);
@@ -80,17 +83,43 @@ export default function Dashboard() {
     dispatch(setSelectedUser(user));
   };
 
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (!file.type.startsWith("image/")) {
+        alert("Please select a valid image file");
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setSelectedImage(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removeSelectedImage = () => {
+    setSelectedImage(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
   const handleSendMessage = async (e) => {
     e.preventDefault();
-    if (!messageInput.trim() || !selectedUser?._id) return;
+    if ((!messageInput.trim() && !selectedImage) || !selectedUser?._id) return;
 
     try {
       setSending(true);
       const text = messageInput;
+      const img = selectedImage;
+
       setMessageInput("");
+      removeSelectedImage();
 
       const res = await api.post(`/message/send/${selectedUser._id}`, {
         message: text,
+        image: img,
       });
 
       dispatch(addMessage(res.data));
@@ -240,7 +269,6 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {/* Notification count badge if any */}
               {notifications.length > 0 && (
                 <div className="flex items-center gap-2 bg-[var(--accent-primary)]/10 text-[var(--accent-primary)] px-3 py-1 rounded-full text-xs font-medium">
                   <FiBell className="w-3.5 h-3.5" />
@@ -275,7 +303,21 @@ export default function Dashboard() {
                             : "bg-[var(--bg-surface)] text-[var(--text-primary)] border border-[var(--border-subtle)] rounded-bl-xs"
                         }`}
                       >
-                        <p className="break-words">{msg.message}</p>
+                        {/* If message has image */}
+                        {msg.image && (
+                          <div className="mb-2 overflow-hidden rounded-xl">
+                            <img
+                              src={msg.image}
+                              alt="attachment"
+                              className="w-full max-h-72 object-cover rounded-xl cursor-pointer hover:opacity-95 transition"
+                              onClick={() => window.open(msg.image, "_blank")}
+                            />
+                          </div>
+                        )}
+
+                        {/* Text Message */}
+                        {msg.message && <p className="break-words">{msg.message}</p>}
+
                         <div
                           className={`text-[10px] mt-1 flex items-center justify-end gap-1 ${
                             isMe ? "text-white/80" : "text-[var(--text-muted)]"
@@ -299,9 +341,49 @@ export default function Dashboard() {
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Message input field */}
+            {/* Selected Image Preview before sending */}
+            {selectedImage && (
+              <div className="px-4 py-2 bg-[var(--bg-surface)] border-t border-[var(--border-subtle)] flex items-center gap-3">
+                <div className="relative">
+                  <img
+                    src={selectedImage}
+                    alt="Preview"
+                    className="w-16 h-16 object-cover rounded-xl border border-[var(--border-subtle)]"
+                  />
+                  <button
+                    onClick={removeSelectedImage}
+                    type="button"
+                    className="absolute -top-1.5 -right-1.5 bg-red-500 hover:bg-red-600 text-white rounded-full p-0.5 cursor-pointer"
+                  >
+                    <FiX className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+                <span className="text-xs text-[var(--text-secondary)]">Image attached</span>
+              </div>
+            )}
+
+            {/* Message input footer */}
             <footer className="p-4 bg-[var(--bg-surface)] border-t border-[var(--border-subtle)]">
               <form onSubmit={handleSendMessage} className="flex items-center gap-2">
+                {/* Hidden File Input */}
+                <input
+                  type="file"
+                  accept="image/*"
+                  ref={fileInputRef}
+                  onChange={handleImageChange}
+                  className="hidden"
+                />
+
+                {/* Image Attach Button */}
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  title="Attach Image"
+                  className="p-3 rounded-xl bg-[var(--bg-input)] hover:bg-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[var(--accent-primary)] border border-[var(--border-subtle)] transition cursor-pointer"
+                >
+                  <FiImage className="w-5 h-5" />
+                </button>
+
                 <input
                   type="text"
                   placeholder={`Message ${selectedUser.userName}...`}
@@ -311,10 +393,14 @@ export default function Dashboard() {
                 />
                 <button
                   type="submit"
-                  disabled={sending || !messageInput.trim()}
-                  className="bg-[var(--accent-primary)] hover:bg-[var(--accent-primary-hover)] disabled:opacity-50 text-white p-3 rounded-xl transition cursor-pointer flex items-center justify-center shadow-md"
+                  disabled={sending || (!messageInput.trim() && !selectedImage)}
+                  className="bg-[var(--accent-primary)] hover:bg-[var(--accent-primary-hover)] disabled:opacity-50 text-white p-3 rounded-xl transition cursor-pointer flex items-center justify-center shadow-md min-w-[48px]"
                 >
-                  <FiSend className="w-5 h-5" />
+                  {sending ? (
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                  ) : (
+                    <FiSend className="w-5 h-5" />
+                  )}
                 </button>
               </form>
             </footer>
