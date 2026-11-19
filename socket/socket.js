@@ -7,13 +7,12 @@ const server = http.createServer(app);
 
 const io = new Server(server, {
   cors: {
-    origin: ["http://localhost:5173", "http://127.0.0.1:5173"],
+    origin: true,
     methods: ["GET", "POST"],
     credentials: true,
   },
 });
 
-// Map of userId -> socketId
 const userSocketMap = {};
 
 export const getReceiverSocketId = (receiverId) => {
@@ -27,7 +26,6 @@ io.on("connection", (socket) => {
     userSocketMap[userId] = socket.id;
   }
 
-  // Send list of all online users to connected clients
   io.emit("getOnlineUsers", Object.keys(userSocketMap));
 
   socket.on("disconnect", () => {

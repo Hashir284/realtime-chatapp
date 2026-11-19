@@ -24,7 +24,12 @@ export const SocketContextProvider = ({ children }) => {
 
   useEffect(() => {
     if (userData?._id) {
-      const newSocket = io("http://localhost:4000", {
+      const isLocal =
+        window.location.hostname === "localhost" ||
+        window.location.hostname === "127.0.0.1";
+      const socketURL = isLocal ? "http://localhost:4000" : "/";
+
+      const newSocket = io(socketURL, {
         query: {
           userId: userData._id,
         },
@@ -37,24 +42,21 @@ export const SocketContextProvider = ({ children }) => {
       });
 
       newSocket.on("newMessage", (newMessage) => {
-        // Agar receiver currently isi user ke chatbox me khula hai toh messages me append karo
         if (selectedUser?._id === newMessage.senderId) {
           dispatch(addMessage(newMessage));
         } else {
-          // Warna notification add karo
           dispatch(
             addNotification({
               senderId: newMessage.senderId,
-              message: newMessage.message,
+              message: newMessage.message || (newMessage.image ? "Sent an image" : ""),
               createdAt: newMessage.createdAt,
             })
           );
         }
 
-        // Play subtle sound or show browser native notification if permitted
         if ("Notification" in window && Notification.permission === "granted") {
           new Notification("New Message Received", {
-            body: newMessage.message,
+            body: newMessage.message || "Sent you an image",
             icon: "/images.png",
           });
         }
